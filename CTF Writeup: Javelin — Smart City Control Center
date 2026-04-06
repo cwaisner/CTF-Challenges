@@ -1,0 +1,60 @@
+# CTF Writeup: Javelin — Smart City Control Center
+
+Company: Cywaria Cyber Range
+Platform: Javelin CTF  
+Category: Network Penetration / Web Exploitation  
+Difficulty: Intermediate  
+
+
+## Background
+
+The scenario involved performing a penetration test against a simulated smart city municipal network in a fictional city called Redford. 
+The target was a publicly accessible server used to receive citizen complaints.
+
+
+## Stage 1: Reconnaissance
+
+The first step was running a port scan against the target to identify open services.
+Initial scans were being blocked because the target had ICMP disabled, meaning standard ping-based host discovery was failing. 
+This was resolved by telling the scanner to skip host discovery entirely and assume the host was alive.
+
+The scan revealed several open services including Remote Desktop Protocol, an HTTP web service,
+and most interestingly an administrative web console running on a non-standard port.
+
+
+## Stage 2: Identifying the Entry Point
+
+Among the discovered services, the administrative console on port **4848** stood out immediately. 
+This port is the default for **GlassFish Server**, a Java EE application server made by Oracle. The version running was identified as **GlassFish 4.0**.
+
+GlassFish is well known in the security community for having a history of serious vulnerabilities, making it a high-value target.
+
+
+## Stage 3: Vulnerability Identification
+
+Research into GlassFish 4.0 revealed a well-documented **directory traversal vulnerability (CVE-2017-1000028)**. 
+This flaw allows an unauthenticated attacker to read arbitrary files from the server's filesystem by manipulating the URL path.
+
+
+## Stage 4: Exploitation
+
+Attempts to exploit the traversal were initially unsuccessful due to the server silently redirecting all HTTP traffic to HTTPS.
+Once HTTPS was used with SSL verification disabled, requests began reaching the application properly.
+
+Various traversal depths and encoding schemes were tested systematically to find the correct path back to the Windows root directory. 
+The target file was `C:\Windows\win.ini`, a standard Windows configuration file used to confirm filesystem access.
+
+This stage took considerably longer than expected as part of the process involved finding a flag through filesystem access. Multiple approaches were attempted 
+including various curl commands with different encodings and traversal depths, as well as Metasploit modules targeting GlassFish, none of which produced results. 
+After exhausting these options, we returned to the original directory traversal approach via URL manipulation a method that had been abandoned earlier and 
+ultimately this proved to be the correct path to retrieving the flag.
+
+
+## Lessons Learned
+
+- ICMP blocking is common in CTF environments and should be anticipated from the start
+- Non-standard ports should always be investigated — high value services are often hiding there
+- HTTP to HTTPS redirects can silently swallow responses if not handled correctly
+- Directory traversal exploits often require trial and error with different encoding schemes and path depths
+- GlassFish 4.0 on port 4848 is a classic and well-documented attack surface
+- When curl commands are going through but you cannot find things, try url manipulation directly even if it has been tried
