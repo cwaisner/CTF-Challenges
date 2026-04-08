@@ -1,0 +1,63 @@
+Overview
+
+This lab demonstrates how to enumerate an Active Directory environment, discover credentials, and escalate privileges to achieve full domain compromise.
+
+Attack Path Summary
+1. Initial Enumeration
+Scanned the target to identify open ports and services
+Confirmed the system was a Domain Controller
+Identified:
+Domain: academy.local
+Hostname: DC200
+
+2. SMB Enumeration (Guest Access)
+Connected using the Guest account
+Enumerated available SMB shares
+Identified shares with read access:
+Logs
+Public
+
+3. User Discovery
+Accessed a readable share and found a file containing employee names
+Extracted valid usernames from the file
+
+4. Password Attack
+Performed password spraying using a common password list
+Successfully obtained credentials for:
+dwhitmore
+
+5. Active Directory Enumeration
+Queried Active Directory users
+Discovered a default password stored in a user description:
+nholloway
+
+6. Credential Validation
+Verified the credentials worked against the target system
+
+7. SYSVOL Enumeration
+Investigated the SYSVOL share for misconfigurations
+Found a Group Policy Preferences (GPP) file containing encrypted credentials
+
+8. Exploiting GPP Vulnerability
+Extracted and decrypted the stored password
+Recovered credentials for:
+stacy (privileged user)
+
+9. Privilege Escalation
+Used the new credentials to gain administrative access on the Domain Controller
+
+10. Credential Dumping
+Deployed Mimikatz on the Domain Controller
+Dumped credentials from memory / SAM database
+
+11. Full Compromise
+Retrieved the NTLM hash of the Domain Administrator account
+Achieved full domain compromise
+
+Key Takeaways
+Misconfigured SMB shares can expose sensitive data
+Weak and reused passwords are easily exploitable
+Active Directory attributes (like descriptions) may leak credentials
+SYSVOL is a high-value target for attackers
+GPP passwords are insecure and reversible
+Credential chaining leads to full domain compromise
