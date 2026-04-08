@@ -1,0 +1,43 @@
+Background
+A coordinated attack against the Estuary North Bank of Dufftown. Clients were reporting failed payments and missing funds, 
+while IT was seeing failures in the Core Banking System. The goal was to figure out what happened, whether it was still ongoing, and how it was done.
+We had two resources: an ELK stack aggregating logs from across the environment, and SSH access to the Core Banking Server.
+
+Investigation
+Getting Oriented on the Server
+First thing I did was SSH in and look around. Started in /home/admin1 — nothing interesting, just standard dot files. Moved up to the root of the filesystem:
+bashls -la /
+Spotted message.txt sitting in / — not a file that belongs there. Opened it:
+bashcat /message.txt
+Ransom note. Confirmed this was ransomware. Grabbed the attacker's contact email and noted the Bitcoin payment demand.
+
+Finding the ATM Logs
+Knew ATM logs were involved based on the brief, so went looking:
+bashsudo find / -name "*.enc" -o -name "*atm*" 2>/dev/null
+Found /var/log/ATMs/ containing several encrypted files and one surviving readable log:
+bashls -lah /var/log/ATMs/
+-rw-r--r-- 1 root root 301K Sep 12 09:58 07-04--17-28-11.log
+-rw-r--r-- 1 root root  28K Sep 12 08:21 07-04--17-28-11.log.enc
+-rw-r--r-- 1 root root  13K Sep 12 08:21 17-08--15-17-31.log.enc
+-rw-r--r-- 1 root root 9.4K Sep 12 08:21 17-08--15-30-54.log.enc
+-rw-r--r-- 1 root root 6.6K Sep 12 08:21 17-08--16-08-04.log.enc
+-rw-r--r-- 1 root root  13K Sep 12 08:21 17-08--16-18-01.log.enc
+All .enc files share the same timestamp — 08:21 — meaning the ransomware hit everything at once. 
+One log survived unencrypted, which became useful for reading post-compromise activity.
+To narrow down what else happened in that window:
+bashfind / -type f -newermt "2021-09-12 08:15:00" ! -newermt "2021-09-12 08:25:00" 2>/dev/null
+This confirmed the /message.txt drop and all .enc files appeared within the same narrow timeframe.
+
+Pivoting to ELK
+Switched over to Kibana to look at what the ATMs were doing. 
+Used the Filebeat index (core banking and Linux logs) with the time range covering the incident period.
+Searching for traffic from the ATM IPs revealed a clear pattern of ATM-to-Core-Banking communication. 
+Also found large unauthorized withdrawal requests being processed shortly after the 08:21 encryption event — 
+confirming the attack had a financial fraud component running alongside the ransomware.
+Checked the Winlogbeat index for Windows-side activity and found ATM machine accounts (ATM-1$) 
+authenticating to the Domain Controller around the same timeframe, suggesting credential abuse or lateral movement was part of the chain.
+
+Summary
+Ransom note/message.txt on Core Banking ServerAttacker contactGetYourFilesBack@protonmail.comPayment demandBitcoinATM logs
+encrypted/var/log/ATMs/*.log → .enc at 2021-09-12 08:21Core Banking Server10.1.50.150ATM-210.1.101.102Fraudulent 
+withdrawalsObserved post 08:21 in surviving ATM log
